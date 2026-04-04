@@ -1,4 +1,4 @@
-# spec-driven-harness
+# SpecForge
 
 Turn Claude Code into a disciplined engineer. `/spec` to think. `/yolo` to ship. `/forge` to run overnight. Zero freestyle.
 
@@ -51,7 +51,7 @@ your-project/
 
 ```bash
 # 1. Clone into your project
-git clone https://github.com/benikigai/spec-driven-harness.git /tmp/sdh
+git clone https://github.com/benikigai/SpecForge.git /tmp/sdh
 cp -r /tmp/sdh/.claude /tmp/sdh/CLAUDE.md /tmp/sdh/ARCHITECTURE.md /tmp/sdh/docs your-project/
 rm -rf /tmp/sdh
 
