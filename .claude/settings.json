@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write",
+      "Edit"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=\"$CLAUDE_TOOL_INPUT\"; for PATTERN in \"rm -rf /\" \"rm -rf ~\" \"--force\" \"--no-verify\" \".env\" \"secrets/\"; do if echo \"$CMD\" | grep -q \"$PATTERN\"; then echo \"[BLOCKED] Dangerous pattern detected: $PATTERN\" && exit 1; fi; done; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"[POST-EDIT] Remember to run formatter and tests on changed files.\"'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before finishing, verify: (1) Did you complete the current task's acceptance criteria? (2) Did you run the specified tests? (3) Did you stay within the expected files? (4) Did you commit with the correct message format? If any are false, list what is missing and continue working."
+          }
+        ]
+      }
+    ]
+  }
+}
