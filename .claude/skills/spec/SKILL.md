@@ -127,8 +127,9 @@ Break the approved option into story-sized tasks. Each task MUST include ALL of 
 3. On approval:
    - Write the complete spec to `docs/specs/<feature>.md`
    - Generate `docs/specs/<feature>-yolo.md` containing ONLY the task list with checkboxes
+   - Generate `docs/specs/<feature>-forge.json` for AgentForge autonomous execution (see Forge Format below)
    - Stage and commit: `spec: approve <feature> — N tasks`
-4. Tell the user: "Spec approved and committed. Run `/yolo` to begin execution."
+4. Tell the user: "Spec approved and committed. Run `/yolo` to execute supervised, or `/forge` to execute autonomously via AgentForge."
 
 ## Yolo Execution File Format
 
@@ -145,6 +146,30 @@ If Claude crashes mid-run, it reads this file and resumes from the first uncheck
 ```
 
 During execution, `/yolo` physically marks each task `[x]` and saves the file after each checkpoint commit.
+
+## Forge Execution File Format
+
+The `<feature>-forge.json` file maps spec tasks to AgentForge's feature_list format for autonomous execution via `ralph-loop.sh`. Each spec task becomes a feature entry:
+
+```json
+[
+  {
+    "id": 1,
+    "category": "<complexity tier: simple|moderate|complex>",
+    "description": "<task objective + key acceptance criteria merged into one description>",
+    "verify": "<test commands from the task's test plan, joined with ' && '>",
+    "passes": false,
+    "skipped": false
+  }
+]
+```
+
+**Mapping rules:**
+- `id` — sequential from the spec's task numbering
+- `category` — the task's complexity tier (lowercase)
+- `description` — combine the task's Objective and Files to change into a clear build instruction
+- `verify` — combine the task's Test plan commands into a single verification string
+- `passes` / `skipped` — always `false` initially; the harness updates these during execution
 
 ## Output Format for Spec Artifact
 

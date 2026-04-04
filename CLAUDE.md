@@ -13,6 +13,7 @@ Every decision — architecture, code, tooling — is evaluated against:
 - ALWAYS explore the codebase before planning. Plan before coding.
 - Use `/spec` for all new features and non-trivial changes. Never skip the spec phase.
 - Use `/yolo` only to execute an approved spec artifact from `docs/specs/`. Never invent scope.
+- Use `/forge` to execute a spec autonomously via AgentForge's Ralph Loop (unattended).
 - Each `/yolo` task must be story-sized (completable in one context window). Refuse to batch oversized tasks.
 - Use the `code-reviewer` subagent after every implementation task.
 - Use the `researcher` subagent before implementing complex-tier tasks.

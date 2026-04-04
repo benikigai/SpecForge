@@ -1,6 +1,6 @@
 # spec-driven-harness
 
-Turn Claude Code into a disciplined engineer. `/spec` to think. `/yolo` to ship. Zero freestyle.
+Turn Claude Code into a disciplined engineer. `/spec` to think. `/yolo` to ship. `/forge` to run overnight. Zero freestyle.
 
 ---
 
@@ -10,11 +10,13 @@ AI coding agents are powerful but undisciplined. They skip planning, hallucinate
 
 ## The Fix
 
-Drop 17 files into your repo. Now Claude Code operates in two strict modes:
+Drop these files into your repo. Now Claude Code operates in three modes:
 
 **`/spec`** — Forces Claude to think before coding. It scans your codebase, asks you 3-5 hard clarifying questions, presents scored implementation options, decomposes into story-sized tasks with acceptance criteria and rollback plans, and writes the approved plan to disk. No code written.
 
-**`/yolo`** — Reads the approved plan. Executes one task at a time. Runs format/lint/typecheck/tests after every edit. Spawns an independent code reviewer. Optionally calls Gemini for a cross-model second opinion. Commits only when everything passes. If Claude crashes mid-run, it reads the checkpoint file and resumes from where it left off.
+**`/yolo`** — Supervised execution. Reads the approved plan. Executes one task at a time. Runs format/lint/typecheck/tests after every edit. Spawns an independent code reviewer. Optionally calls Gemini for a cross-model second opinion. Commits only when everything passes. If Claude crashes mid-run, it reads the checkpoint file and resumes from where it left off.
+
+**`/forge`** — Autonomous execution via [AgentForge](https://github.com/benikigai/AgentForge). Translates the spec into AgentForge's format and launches the Ralph Loop. Codex builds each task, Sonnet scores it 0-10, and the harness retries up to 3 times with structured feedback. Walk away, come back to committed code.
 
 The agent never invents scope. If the spec doesn't say to do it, it doesn't do it.
 
@@ -27,8 +29,9 @@ your-project/
 ├── .claude/
 │   ├── settings.json                   # Hooks + permissions
 │   ├── skills/
-│   │   ├── spec/SKILL.md              # /spec — thinking engine
-│   │   ├── yolo/SKILL.md             # /yolo — narrow executor
+│   │   ├── spec/SKILL.md              # /spec — planning engine
+│   │   ├── yolo/SKILL.md             # /yolo — supervised executor
+│   │   ├── forge/SKILL.md            # /forge — AgentForge bridge
 │   │   └── research/SKILL.md         # /research — Karpathy loop
 │   ├── agents/
 │   │   ├── code-reviewer.md           # Quality gate (read-only)
@@ -62,8 +65,11 @@ claude
 # 4. Plan a feature
 > /spec I want to add user authentication with OAuth2
 
-# 5. Execute the plan
+# 5a. Execute supervised (you watch)
 > /yolo
+
+# 5b. Execute autonomous (walk away)
+> /forge
 ```
 
 ## How It Works
@@ -94,6 +100,24 @@ For each task in the spec:
     → Next task
 ```
 
+### /forge Flow (Autonomous via AgentForge)
+
+```
+/forge reads the approved spec
+    → Generates forge JSON (AgentForge feature list format)
+    → Generates build prompt from spec + project context
+    → Launches ralph-loop.sh
+        → Codex builds each task
+        → Sonnet evaluator scores 0-10
+        → If score < threshold: structured feedback → retry (up to 3x)
+        → If pass: commit + mark complete
+        → If stagnation: accept if close, skip if not
+    �� Writes run report to docs/runs/
+    → Marks yolo checkboxes for any completed tasks
+```
+
+**Requirements:** [AgentForge](https://github.com/benikigai/AgentForge) installed at `~/code/AgentForge`, `codex` CLI, `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` set.
+
 ### /research Flow (Complex Tasks Only)
 
 ```
@@ -104,6 +128,17 @@ Up to 5 iterations:
     → Keep improvement or git stash discard
     → Repeat until validated
 ```
+
+## When to Use Which
+
+| Situation | Use |
+|-----------|-----|
+| First time building in a new area of the codebase | `/yolo` — watch and learn |
+| Security-sensitive changes (auth, payments, data) | `/yolo` — human review per task |
+| Well-defined feature, clear tests, low risk | `/forge` — let it run |
+| Overnight batch of features | `/forge` — built for this |
+| Debugging a failed `/forge` task | `/yolo` — step through manually |
+| Complex architecture decision | `/yolo` + `/research` — need human judgment |
 
 ## The Review Chain
 

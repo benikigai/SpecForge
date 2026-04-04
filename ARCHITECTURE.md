@@ -7,15 +7,23 @@
 - **Verification Engine:** Ralph Loop — persistent code/fix retries until exit 0
 - **Research Engine:** Karpathy Loop — dry-run hypotheses with explicit `git stash`/`git checkout` rollback
 - **Review Gate:** Internal subagent (code-reviewer) + optional external API (Gemini via review.sh)
+- **Autonomous Engine:** AgentForge Ralph Loop via `/forge` — Codex builds, Sonnet scores, harness commits
 
 ## Workflow
 
 ```
 User -> /spec -> Interview -> Research (gated) -> Options -> Tasks -> Approved Spec
                                                                           |
-User -> /yolo -> Pre-flight -> [Task Loop] -> Post-Edit Gates -> Review -> Commit -> Next Task
-                                   |                                          |
-                              /research (if complex)                   review.sh (optional)
+                                                               ┌──────────┴──────────┐
+                                                               │                     │
+                                                            /yolo                  /forge
+                                                         (supervised)          (autonomous)
+                                                               │                     │
+                                                     Claude Code task loop    AgentForge ralph-loop
+                                                     + subagent review        + Sonnet evaluator
+                                                     + optional Gemini        + quality backpressure
+                                                               │                     │
+                                                          docs/runs/            docs/runs/
 ```
 
 ## Complexity Tiers
@@ -35,6 +43,8 @@ User -> /yolo -> Pre-flight -> [Task Loop] -> Post-Edit Gates -> Review -> Commi
 | researcher        | sonnet | Read + Web | Architecture/dependency analysis  |
 | security-reviewer | sonnet | Read-only  | Security-focused review           |
 | Gemini (external) | flash  | API only   | Independent second opinion        |
+| Codex (via /forge) | gpt-5.3 | Codex CLI | Autonomous builder in Ralph Loop |
+| Sonnet (evaluator) | sonnet | API only   | Scores /forge builds 0-10        |
 
 ## Key Principles
 
