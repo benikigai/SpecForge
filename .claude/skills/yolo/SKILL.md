@@ -26,6 +26,7 @@ You are in YOLO MODE. Your job is to execute an approved spec artifact, one task
 Before executing ANY task, verify all of these. If any fail, STOP and report:
 
 - [ ] **Approved spec exists:** Check `docs/specs/` for the relevant `<feature>-yolo.md` file
+- [ ] **Context snapshot loaded:** Read `docs/specs/<feature>-context.md` if present to recover research notes, approved option, prior progress, and open risks
 - [ ] **Git is clean:** No uncommitted changes (`git status`)
 - [ ] **Feature branch exists:** Create one if not: `git checkout -b feat/<feature>`
 - [ ] **Base tests pass:** Run the project's test suite to establish a green baseline
@@ -74,11 +75,27 @@ Run these in order. ALL must pass before proceeding:
 4. **Targeted tests:** Run tests for changed files/modules only
 5. **Broader tests (if applicable):** If this task touches shared surfaces (utilities, middleware, data models, APIs), run integration or smoke tests
 
-If any gate fails:
+If any gate fails, use **UltraQA diagnostic cycling** (adapted from OMX):
 
-- Fix the issue
-- Re-run the failing gate
-- Maximum 3 fix attempts per gate before escalating to user
+1. **Diagnose:** Spawn the `diagnostician` subagent with the error output + changed files
+2. **Read diagnosis:** The diagnostician classifies the failure (SYNTAX, TYPE, LOGIC, MISSING_DEP, CONFIG, REGRESSION, APPROACH) and provides a specific fix
+3. **Apply fix:** Implement the diagnosed fix — not a blind retry
+4. **Re-run gate:** Run the failing gate again
+5. **Repeat:** Maximum 3 diagnostic cycles per gate
+6. **Escalate:** If still failing after 3 diagnosed attempts, escalate to user with the diagnosis history
+
+This is NOT blind retry. Each cycle has a diagnosis step that prevents repeating the same mistake.
+
+### Step 4b: Deslop Pass
+
+Before review, run `/deslop` against the changed files for this task:
+
+1. Remove definite slop items: new TODO/FIXME/HACK markers, debug logs, unjustified suppressions, placeholder text, commented-out dead code
+2. Flag uncertain items instead of deleting them blindly
+3. Re-run any affected gates if the cleanup touched executable code or tests
+4. Log what was cleaned in the task run report
+
+If `/deslop` finds nothing, state that explicitly and continue.
 
 ### Step 5: Code Review
 
@@ -115,6 +132,13 @@ Tests: [which tests ran and passed]"
 ```
 
 Then **update the yolo execution file** — change this task's `[ ]` to `[x]` and save. This enables crash-resilient resume.
+
+Also refresh `docs/specs/<feature>-context.md` with:
+- Current phase: `Execution in progress`
+- Tasks completed vs total
+- Last completed task and commit SHA
+- Outstanding risks or reviewer feedback still relevant
+- Whether deslop cleaned anything on this task
 
 ### Step 6b: External Review (Optional)
 
@@ -198,7 +222,9 @@ After ALL tasks are complete:
 ```
 
 4. **Commit run report:** `docs: run report for <feature>`
-5. **Present to user:** Show the summary and ask for final review.
+5. **Refresh context snapshot:** mark `Current phase: Execution complete` and summarize
+   final test status, completed task count, and any follow-up risks
+6. **Present to user:** Show the summary and ask for final review.
 
 ## CRITICAL RULES
 

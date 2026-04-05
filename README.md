@@ -18,6 +18,10 @@ Drop these files into your repo. Now Claude Code operates in three modes:
 
 **`/forge`** — Autonomous execution via [AgentForge](https://github.com/benikigai/AgentForge). Translates the spec into AgentForge's format and launches the Ralph Loop. Codex builds each task, Sonnet scores it 0-10, and the harness retries up to 3 times with structured feedback. Walk away, come back to committed code.
 
+**`/deslop`** — Mandatory cleanup pass. Scans changed files for AI junk like TODOs, debug logs, placeholder text, commented-out dead code, and unjustified suppressions before review.
+
+**Context snapshots** — Each phase writes `docs/specs/<feature>-context.md` so `/research`, `/spec`, `/yolo`, and `/autopilot` can hand off without losing the plot after compaction, crashes, or mode switches.
+
 The agent never invents scope. If the spec doesn't say to do it, it doesn't do it.
 
 ## What's Inside
@@ -32,13 +36,18 @@ your-project/
 │   │   ├── spec/SKILL.md              # /spec — planning engine
 │   │   ├── yolo/SKILL.md             # /yolo — supervised executor
 │   │   ├── forge/SKILL.md            # /forge — AgentForge bridge
-│   │   └── research/SKILL.md         # /research — Karpathy loop
+│   │   ├── research/SKILL.md         # /research — deep research
+│   │   ├── deslop/SKILL.md           # /deslop — AI slop cleanup
+│   │   └── autopilot/SKILL.md        # /autopilot — full pipeline
 │   ├── agents/
 │   │   ├── code-reviewer.md           # Quality gate (read-only)
+│   │   ├── critic.md                  # Spec red-team (read-only)
+│   │   ├── diagnostician.md           # Gate failure diagnosis (read-only)
 │   │   ├── researcher.md              # Architecture investigator (read-only + web)
 │   │   └── security-reviewer.md       # Security hunter (read-only)
 │   ├── scripts/
-│   │   └── review.sh                  # External Gemini review via curl
+│   │   ├── review.sh                  # External Gemini review via curl
+│   │   └── write-context-snapshot.sh  # Snapshot helper for cross-phase handoffs
 │   └── provider-handoff.md            # Cross-model review contract
 └── docs/
     ├── specs/                          # Approved spec artifacts
@@ -79,24 +88,29 @@ claude
 ```
 You describe a feature
     → Claude scans codebase
+    → Loads any prior context snapshot / research doc
     → Asks 3-5 clarifying questions
     → Presents 2-3 options scored on Elegant / Efficient / Effective
+    → Critic subagent attacks the recommended option
     → Decomposes chosen option into tasks
-    → Writes approved spec to docs/specs/
+    → Writes approved spec + context snapshot to docs/specs/
 ```
 
 ### /yolo Flow
 
 ```
 For each task in the spec:
+    → Load context snapshot
     → Restate objective (no ambiguity)
     → Implement (stay in spec's file list)
     → Run format / lint / typecheck / tests
+    → Run deslop cleanup pass
     → Spawn code-reviewer subagent
     → Optional: call Gemini via review.sh
     → Fix any issues raised
     → Commit with structured message
     → Mark checkbox [x] in execution file
+    → Refresh context snapshot
     → Next task
 ```
 
@@ -112,21 +126,20 @@ For each task in the spec:
         → If score < threshold: structured feedback → retry (up to 3x)
         → If pass: commit + mark complete
         → If stagnation: accept if close, skip if not
-    �� Writes run report to docs/runs/
+    → Writes run report to docs/runs/
     → Marks yolo checkboxes for any completed tasks
 ```
 
 **Requirements:** [AgentForge](https://github.com/benikigai/AgentForge) installed at `~/code/AgentForge`, `codex` CLI, `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` set.
 
-### /research Flow (Complex Tasks Only)
+### /research Flow
 
 ```
-Up to 5 iterations:
-    → Hypothesize an approach
-    → Build minimal proof
-    → Measure against metrics
-    → Keep improvement or git stash discard
-    → Repeat until validated
+You describe a topic
+    → Claude searches web + GitHub + dev communities
+    → Synthesizes consensus, contrarian takes, and repos to steal from
+    → Writes docs/specs/<topic>-research.md
+    → Seeds docs/specs/<topic>-context.md for /spec
 ```
 
 ## When to Use Which
@@ -167,7 +180,20 @@ Tasks are graded. The system scales its effort accordingly:
 - **Stop hook** verifies acceptance criteria met before Claude finishes any turn
 - **Protected paths** require explicit approval (migrations, auth, secrets, CI/CD, lock files)
 - **Crash resilience** — physical `[ ]`/`[x]` checkboxes on disk track progress; resume from any interruption
+- **Cross-phase memory** — `docs/specs/<feature>-context.md` preserves decisions, risks, and progress across `/research` → `/spec` → `/yolo` → `/autopilot`
 - **Every passing task is committed** — your safety net
+
+## Notifications
+
+SpecForge now assumes [Clawhip](https://github.com/boxofrad/clawhip) is the notification backbone for unattended flows such as `/autopilot`.
+
+- Preferred repo command: `bash .claude/scripts/notify-clawhip.sh finished --session "<feature>" --summary "PR ready: <url>"`
+- The wrapper emits `agent.*` events with `project=SpecForge`
+- Default routing in this setup:
+  - `agent.*` for `project=SpecForge` → `#codex`
+  - `github.ci-*` → `#system-ops`
+  - `git.commit` from monitored repos → `#codex`
+- `clawhip` must be on `PATH` or available at `~/.cargo/bin/clawhip`
 
 ## Core Principles
 

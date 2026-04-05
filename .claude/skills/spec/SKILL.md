@@ -16,12 +16,14 @@ You are in SPEC MODE. Your job is to think, research, clarify, analyze options, 
 ## Phase 0: Context Loading
 
 1. Read `CLAUDE.md` for project-wide rules
-2. Identify relevant source files — use the Explore subagent to scan the codebase
-3. Check `docs/specs/` for related prior specs
-4. Check git log for recent changes in the affected area
-5. Note the current branch and working tree status
+2. Check `docs/specs/` for an existing `<feature>-context.md` snapshot and load it first
+3. Check `docs/specs/` for related prior specs and research docs
+4. Identify relevant source files — use the Explore subagent to scan the codebase
+5. Check git log for recent changes in the affected area
+6. Note the current branch and working tree status
 
-**Output to user:** Brief summary of what you found — relevant files, recent changes, existing patterns.
+**Output to user:** Brief summary of what you found — relevant files, recent changes,
+existing patterns, and any recovered context from prior research/spec work.
 
 ## Phase 1: Intent Interview
 
@@ -59,6 +61,8 @@ Ask exactly 3-5 clarifying questions. ONLY ask where uncertainty would change th
 > Investigate [topic]. Answer: (1) current behavior and relevant files, (2) invariants that must not change, (3) hidden dependencies and adjacent callers, (4) what has been tried before (check git history), (5) best practices for this pattern.
 
 Write research output to `docs/specs/<feature>-research.md` — keep it separate from the final spec.
+If `.claude/scripts/write-context-snapshot.sh` exists, refresh `docs/specs/<feature>-context.md`
+after research with phase `Discovery complete` and a short findings summary.
 
 **If gated OUT:** Skip to Phase 3. State: "Research skipped — [reason]."
 
@@ -85,7 +89,25 @@ Present 2-3 implementation options. For each option:
 
 **Then recommend one option** with a clear rationale tied to the Three Es.
 
-Present options to the user. Wait for approval or discussion before proceeding.
+### Phase 3b: Critic Review (RALPLAN Pattern)
+
+Before presenting to the user, spawn the `critic` subagent to attack the recommended option:
+
+> Review this spec's recommended option. Try to break it. Check: feasibility, risk blind
+> spots, edge cases the spec ignores, simpler alternatives, and test plan gaps. Return
+> APPROVE, CONCERNS, or REJECT with specific issues.
+
+**If REJECT:** Address the critical flaws before presenting to the user. Re-analyze options if needed.
+**If CONCERNS:** Incorporate valid concerns into the risks section. Dismiss unfounded ones with reasoning.
+**If APPROVE:** Proceed — note that the critic found no critical flaws (this builds confidence).
+
+Before presenting to the user, refresh `docs/specs/<feature>-context.md` with:
+- Current phase: `Options analyzed`
+- Approved option candidate: the current recommendation
+- Critic verdict: `APPROVE`, `CONCERNS`, or `REJECT`
+- Key unresolved questions or risks still open
+
+Present options AND the critic's assessment to the user. Wait for approval or discussion.
 
 ## Phase 4: Task Decomposition
 
@@ -129,7 +151,20 @@ Break the approved option into story-sized tasks. Each task MUST include ALL of 
    - Generate `docs/specs/<feature>-yolo.md` containing ONLY the task list with checkboxes
    - Generate `docs/specs/<feature>-forge.json` for AgentForge autonomous execution (see Forge Format below)
    - Stage and commit: `spec: approve <feature> — N tasks`
-4. Tell the user: "Spec approved and committed. Run `/yolo` to execute supervised, or `/forge` to execute autonomously via AgentForge."
+4. Write a context snapshot to `docs/specs/<feature>-context.md`:
+   ```markdown
+   # Context: [Feature Name]
+   **Last updated:** [timestamp]
+   **Phase:** Spec approved
+   **Approved option:** [option name]
+   **Tasks:** [N] ([Simple: X, Moderate: Y, Complex: Z])
+   **Key risks:** [top 2-3]
+   **Critic verdict:** [APPROVE/CONCERNS — brief summary]
+   **Research:** [link to research doc or "N/A"]
+   ```
+   If `.claude/scripts/write-context-snapshot.sh` exists, prefer using it to keep
+   the snapshot format consistent across `/research`, `/spec`, `/yolo`, and `/autopilot`.
+5. Tell the user: "Spec approved and committed. Run `/yolo` to execute supervised, `/forge` to execute autonomously, or `/autopilot` to run the full pipeline."
 
 ## Yolo Execution File Format
 

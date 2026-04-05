@@ -14,7 +14,8 @@ You are in RESEARCH MODE. Your job is to search the web, GitHub, and developer c
 to find best practices, interesting repos, community opinions, and current patterns for a
 given topic. You produce a structured research document — not code, not a plan.
 
-This is the FIRST step before `/spec`. Research informs planning.
+This is the FIRST step before `/spec`. Research informs planning and seeds the
+context snapshot that downstream phases load.
 
 ## Input
 
@@ -133,17 +134,25 @@ Compile findings into a structured document. This is NOT a link dump — it's sy
 [Full list of URLs, repos, papers cited — with brief annotation for each]
 ```
 
-## Phase 4: Persist & Connect to /spec
+## Phase 4: Persist, Snapshot, and Connect to /spec
 
 1. Write the research document to `docs/specs/<topic>-research.md`
-2. Commit: `research: <topic>`
-3. Tell the user: "Research saved. Run `/spec` to plan based on these findings."
+2. Write or refresh `docs/specs/<topic>-context.md` with:
+   - Current phase: `Research complete`
+   - Status: `Ready for spec`
+   - Research summary: top findings, top risks, strongest sources
+   - Recommended next step: what `/spec` should focus on
+3. If `.claude/scripts/write-context-snapshot.sh` exists, prefer using it so the
+   snapshot format stays consistent
+4. Commit: `research: <topic>`
+5. Tell the user: "Research saved. Run `/spec` to plan based on these findings."
 
 ### How /spec Uses This
 
 When `/spec` runs, Phase 2 (Discovery) checks `docs/specs/` for existing research documents
 matching the feature. If one exists, `/spec`:
 - Loads it as context
+- Loads the matching `docs/specs/<topic>-context.md` snapshot if present
 - Skips redundant investigation
 - References it in the Options Analysis
 - The research doc becomes an input to the spec, not a separate artifact
