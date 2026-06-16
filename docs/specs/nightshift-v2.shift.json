@@ -1,0 +1,71 @@
+[
+  { "id": 1, "category": "complex",
+    "description": "Rename the Forge stack to Nightshift. git-checkpoint each repo first, then git mv: /Users/elias/code/forge -> /Users/elias/code/nightshift; SpecForge -> brief; agentforge -> graveyard; ReviewForge -> handoff. Rename ralph-loop.sh -> graveyard.sh. Update all path references and fix the broken default AGENTFORGE_HOME ($HOME/code/AgentForge -> /Users/elias/code/nightshift/graveyard). Record the rename in each repo CHANGELOG.md.",
+    "verify": "Dirs /Users/elias/code/nightshift/{brief,graveyard,handoff} exist; graveyard/graveyard.sh --help runs; no execution-path reference resolves to a *Forge name; each CHANGELOG notes the rename",
+    "passes": false, "skipped": false },
+
+  { "id": 2, "category": "scaffold",
+    "description": "Create /Users/elias/code/nightshift/nightshift.config.json with keys: paths.{graveyard,brief,handoff}, models.builder=gpt-5.3-codex, models.evaluator=claude-sonnet-4-6, default_adapter=codex, auth.mode=subscription_first, auth.fallback_api=true, budgets.daily_usd=20 (metered-fallback only), budgets.per_run_usd=5, circuit_breaker.{no_progress:3,repeated_errors:5,permission_denial:1,subscription_exhausted:1}, notify.telegram_id=5611660528. Add nightshift-config-get helper reading dotted keys via python3.",
+    "verify": "nightshift-config-get .paths.graveyard prints /Users/elias/code/nightshift/graveyard; nightshift-config-get .budgets.daily_usd prints 20; nightshift-config-get .auth.mode prints subscription_first",
+    "passes": false, "skipped": false },
+
+  { "id": 3, "category": "complex",
+    "description": "Externalize hardcoded model ids: graveyard.sh reads CODEX_MODEL from nightshift.config.json models.builder; evaluate.py reads models.evaluator (replace literal claude-sonnet-4-20250514 with claude-sonnet-4-6). Fall back to current literals when config absent.",
+    "verify": "No literal gpt-5.3-codex / claude-sonnet-4-20250514 remains in execution paths; loop runs end-to-end using the config-supplied model",
+    "passes": false, "skipped": false },
+
+  { "id": 4, "category": "complex",
+    "description": "Authentication layer (subscription-first, API-fallback). Create nightshift/auth.sh that resolves per-adapter auth subscription-first. Replace evaluate.py's metered Anthropic SDK call (from anthropic import Anthropic) with a shell-out to `claude -p --output-format json` with ANTHROPIC_API_KEY UNSET (Max credit pool). Ensure codex is authed via Sign-in-with-ChatGPT, not OPENAI_API_KEY. Change init.sh to stop exiting on missing OPENAI_API_KEY/ANTHROPIC_API_KEY; instead verify subscription CLIs (claude, codex) are logged in; treat API keys as optional fallback only. When a subscription path returns a rate-limit signal, auth.sh may re-enable the metered key for that call ONLY if auth.fallback_api=true, recording spend in state/budget.json. Use official CLIs only — never 3rd-party auth plugins. PROTECTED PATH (secrets): requires explicit approval; never commit key material.",
+    "verify": "Evaluator produces scores via claude -p with no ANTHROPIC_API_KEY set and no api.anthropic.com call; init.sh preflight passes with subscription CLIs logged in and no API keys exported; forced subscription rate-limit triggers metered fallback only when auth.fallback_api=true and logs the spend",
+    "passes": false, "skipped": false },
+
+  { "id": 5, "category": "complex",
+    "description": "Define the executor-adapter contract: nightshift/adapters/<name>.sh build --prompt <f> --features <shift.json> --workdir <d> mutates workdir, writes telemetry.json {tokens,cost_usd,auth_path,status}, returns exit code. Implement codex.sh wrapping graveyard.sh as the default adapter, resolving auth via auth.sh (ChatGPT login).",
+    "verify": "adapters/codex.sh build on a sample shift yields identical commits to direct graveyard.sh and a valid telemetry.json with auth_path=subscription",
+    "passes": false, "skipped": false },
+
+  { "id": 6, "category": "complex",
+    "description": "Create queue dirs nightshift/queue/{pending,active,done,failed} and nightshift/dispatch.sh: flock-guarded pull of oldest pending shift -> move to active -> run build adapter -> on success move to done, on failure move to failed; structured per-shift log.",
+    "verify": "Two enqueued toy shifts process serially with no double-pull; each ends in done/ or failed/",
+    "passes": false, "skipped": false },
+
+  { "id": 7, "category": "complex",
+    "description": "Create nightshift/nightshift-supervisor.sh: infinite guarded loop calling dispatch.sh; SIGTERM trap; checkpoint state/checkpoint.json {shift,iteration,attempt,scores}; on start resume an interrupted active/ shift. Wrap the process in caffeinate -s.",
+    "verify": "kill -9 mid-run then relaunch resumes the active shift from checkpoint with no duplicate commits",
+    "passes": false, "skipped": false },
+
+  { "id": 8, "category": "complex",
+    "description": "Add guardrails to the supervisor: daily ($20) and per-run ($5) metered-fallback cost ceilings from config (ledger state/budget.json); circuit breaker OPEN on 3 no-progress iterations, 5 repeated identical errors, any permission-denial, or subscription-pool exhausted; hourly call cap. OPEN or budget-hit halts dispatch and sends a Telegram alert. On subscription exhaustion, halt rather than silently overflow to metered unless auth.fallback_api=true.",
+    "verify": "Setting daily_usd=1 halts after exceed with alert; 3 simulated no-progress iterations flip the breaker OPEN; a simulated subscription-exhausted signal flips the breaker OPEN with Telegram and no metered call when fallback_api=false",
+    "passes": false, "skipped": false },
+
+  { "id": 9, "category": "complex",
+    "description": "Wire the Handoff review phase into dispatch.sh: after build run handoff /review; APPROVE -> /pr; BLOCK or REQUEST CHANGES -> /triage -> re-enqueue the shift with the recovery hint appended to its prompt; cap 2 recovery cycles then move to failed/ and escalate via Telegram. Reviewers resolve auth subscription-first via auth.sh (Claude reviewer = Claude Code subscription; GPT reviewer via codex/ChatGPT; Gemini reviewer via agy OAuth, mindful of the 200/24h cap).",
+    "verify": "A seeded-bug shift produces BLOCK, is triaged and re-queued once, and escalates after the 2nd failure; reviewers run via subscription CLIs with no metered API keys under default config",
+    "passes": false, "skipped": false },
+
+  { "id": 10, "category": "complex",
+    "description": "Add hypothesis memory: append {shift,task,approach,outcome} to state/hypothesis-history.jsonl each attempt; inject the last 10 failed approaches for the current shift into the build prompt with a do-not-repeat instruction. Run each shift build inside an auto-created, auto-removed git worktree.",
+    "verify": "A repeated failed approach is suppressed in the next prompt; two concurrent shifts build in separate worktrees without colliding",
+    "passes": false, "skipped": false },
+
+  { "id": 11, "category": "complex",
+    "description": "Create nightshift/adapters/claude.sh to the adapter contract using headless `claude -p --output-format json` inside a worktree with a settings.json allowlist (NO --dangerously-skip-permissions); auth via auth.sh (Max credit pool, ANTHROPIC_API_KEY unset). Emit telemetry.json with auth_path. Select adapter per shift via config default_adapter or a bundle-level override field.",
+    "verify": "adapters/claude.sh build completes a toy shift, commits changes, writes telemetry with auth_path=subscription and no metered call; adapter selection honors the bundle override",
+    "passes": false, "skipped": false },
+
+  { "id": 12, "category": "complex",
+    "description": "Install Antigravity 2.0, then implement nightshift/adapters/antigravity.sh via the official `agy` CLI with OAuth (Google AI Ultra) auth through auth.sh. Respect the ~200 req/24h OAuth cap — scope as a light-touch reviewer/secondary builder, NOT the 24/7 workhorse. Documented claude.sh fallback when capped or unavailable. Do NOT use 3rd-party auth plugins (ban risk). Antigravity is NOT installed as of 2026-06-14; OFF the always-on critical path.",
+    "verify": "antigravity.sh build completes a toy shift via agy OAuth OR logs the documented blocker/cap and falls back to the claude adapter with a passing run; telemetry records auth_path and warns near the 200/24h cap",
+    "passes": false, "skipped": false },
+
+  { "id": 13, "category": "polish",
+    "description": "Repoint the Graveyard Next.js dashboard to read supervisor state/ (queue depth, active shift, budget ledger, breaker status, per-provider subscription headroom) and add a guaranteed Telegram notifier (id 5611660528) firing on review BLOCK, budget-hit, subscription-exhausted, and shift completion.",
+    "verify": "Dashboard renders live always-on state incl. subscription headroom from state/; each of the four events delivers a Telegram message",
+    "passes": false, "skipped": false },
+
+  { "id": 14, "category": "scaffold",
+    "description": "Create ~/Library/LaunchAgents/ai.nightshift.supervisor.plist (Label ai.nightshift.supervisor, RunAtLoad true, KeepAlive true, ProgramArguments -> nightshift-supervisor.sh, StandardOut/Error -> state/supervisor.log). Provide nightshift/RUNBOOK.md documenting load/unload/status/kill-switch and the subscription-login bootstrap (claude setup-token, codex ChatGPT login, agy OAuth).",
+    "verify": "launchctl load brings the supervisor up at login and KeepAlive restarts it after kill; RUNBOOK.md documents lifecycle and subscription bootstrap",
+    "passes": false, "skipped": false }
+]
