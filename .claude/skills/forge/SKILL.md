@@ -2,7 +2,7 @@
 name: forge
 description: >
   Bridge to AgentForge's autonomous Ralph Loop. Reads an approved spec's forge JSON,
-  generates build prompts, and launches ralph-loop.sh for fully autonomous execution.
+  generates build prompts, and launches graveyard.sh for fully autonomous execution.
   Use when you want to execute a spec unattended — overnight builds, batch features,
   or any time you don't need to supervise each task. Requires AgentForge to be installed.
 invocation: user
@@ -22,7 +22,7 @@ Before launching, verify ALL of these. If any fail, STOP and report:
 - [ ] **Git is clean:** No uncommitted changes (`git status`)
 - [ ] **Feature branch exists:** Create one if not: `git checkout -b feat/<feature>`
 - [ ] **Base tests pass:** Run the project's test suite to establish a green baseline
-- [ ] **AgentForge installed:** Check `$AGENTFORGE_HOME` or `~/code/AgentForge/ralph-loop.sh` exists
+- [ ] **AgentForge installed:** Check `$AGENTFORGE_HOME` or `/Users/elias/code/nightshift/graveyard/graveyard.sh` exists
 - [ ] **Builder available:** Verify `codex` CLI is installed (`which codex`)
 - [ ] **API keys set:** `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` must be exported
 
@@ -72,9 +72,9 @@ ONE task. Build it. Verify it. Exit.
 Run the Ralph Loop with spec-driven paths:
 
 ```bash
-AGENTFORGE_HOME="${AGENTFORGE_HOME:-$HOME/code/AgentForge}"
+AGENTFORGE_HOME="${AGENTFORGE_HOME:-/Users/elias/code/nightshift/graveyard}"
 
-"$AGENTFORGE_HOME/ralph-loop.sh" \
+"$AGENTFORGE_HOME/graveyard.sh" \
     --features "docs/specs/<feature>-forge.json" \
     --prompt "docs/specs/<feature>-PROMPT_build.md" \
     --project-dir "$(pwd)"
@@ -131,7 +131,7 @@ generate it on the fly:
 ## CRITICAL RULES
 
 - **NEVER modify the spec.** The spec is frozen. If something needs to change, tell the user to re-spec.
-- **NEVER run ralph-loop.sh without user confirmation.** It's autonomous and will run for a while.
+- **NEVER run graveyard.sh without user confirmation.** It's autonomous and will run for a while.
 - **ALWAYS generate the build prompt before launching.** The loop needs project-specific context.
 - **ALWAYS check for AgentForge installation.** Don't fail cryptically if it's missing.
 - **Forge is for unattended execution.** If the user wants to watch each step, tell them to use `/yolo` instead.

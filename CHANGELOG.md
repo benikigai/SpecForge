@@ -22,3 +22,9 @@
 - chore: initialize spec-driven-harness — full SDD system (69f1128)
 
 Older entries: archive/CHANGELOG_ARCHIVE.md
+
+## Renamed to Nightshift — 2026-06-15
+- SpecForge → **Brief** (the planning stage of the Nightshift always-on stack).
+- Path: ~/code/forge/SpecForge → ~/code/nightshift/brief. GitHub: benikigai/SpecForge → benikigai/nightshift-brief.
+- Fixed broken `/forge` skill default (AGENTFORGE_HOME → ~/code/nightshift/graveyard) and ralph-loop.sh → graveyard.sh.
+- Spec: docs/specs/nightshift-v2.md (Task 1).
